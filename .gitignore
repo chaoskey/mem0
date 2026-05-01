@@ -190,3 +190,6 @@ eval/
 qdrant_storage/
 .crossnote
 testing.ipynb
+
+.git_mem0ai/
+.git_chaoskey/
