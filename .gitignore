@@ -193,3 +193,5 @@ testing.ipynb
 
 .git_mem0ai/
 .git_chaoskey/
+.env
+config.py

@@ -52,7 +52,7 @@ SENSITIVE_CONFIG_KEYS = {
 SKIPPED_REQUEST_LOG_PATHS = {"/api/health", "/docs", "/redoc", "/openapi.json"}
 SKIPPED_REQUEST_LOG_PREFIXES = ("/requests",)
 
-BUNDLED_LLM_PROVIDERS = ("openai", "anthropic", "gemini")
+BUNDLED_LLM_PROVIDERS = ("openai", "anthropic", "gemini","deepseek")
 BUNDLED_EMBEDDER_PROVIDERS = ("openai", "gemini")
 
 
@@ -151,6 +151,28 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_exception_handler(UpstreamError, upstream_error_handler)
 DASHBOARD_URL = os.environ.get("DASHBOARD_URL", "http://localhost:3000")
+
+class RewritePathsMiddleware:
+    def __init__(self, app):
+        self.app = app
+        self.prefix = os.environ.get("MEM0_API_PREFIX", "/v1").rstrip("/")
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            path = scope.get("path", "")
+            
+            if path.startswith("/v3/memories/search"):
+                scope["path"] = path.replace("/v3/memories/search", "/search", 1)
+            elif path.startswith(self.prefix + "/") or path == self.prefix:
+                scope["path"] = path[len(self.prefix):] or "/"
+                
+            if scope["path"] != "/" and scope["path"].endswith("/"):
+                scope["path"] = scope["path"].rstrip("/")
+                
+        return await self.app(scope, receive, send)
+
+app.add_middleware(RewritePathsMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[DASHBOARD_URL],

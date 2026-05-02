@@ -14,6 +14,7 @@ services:
     volumes:
       - ./history:/app/history
       - .:/app
+    restart: always
     depends_on:
       postgres:
         condition: service_healthy

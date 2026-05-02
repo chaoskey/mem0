@@ -12,6 +12,34 @@ _memory_instance: Memory | None = None
 _session_factory: Callable | None = None
 
 
+def _load_file_config() -> Dict[str, Any]:
+    try:
+        from config import config as file_config
+
+        if isinstance(file_config, dict):
+            return deepcopy(file_config)
+    except ImportError:
+        return {}
+    except Exception:
+        logging.warning("Failed to load file-based config", exc_info=True)
+        return {}
+
+    return {}
+
+
+def _build_effective_config(base_config: Dict[str, Any], overrides: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    effective_config = deepcopy(base_config)
+
+    if overrides:
+        effective_config = _merge_config(effective_config, overrides)
+
+    file_config = _load_file_config()
+    if file_config:
+        effective_config = _merge_config(effective_config, file_config)
+
+    return effective_config
+
+
 def set_session_factory(factory: Callable) -> None:
     global _session_factory
     _session_factory = factory
@@ -76,21 +104,18 @@ def _merge_config(base: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, An
 def initialize_state(default_config: Dict[str, Any]) -> None:
     global _current_config, _memory_instance
     with _state_lock:
-        _current_config = deepcopy(default_config)
         overrides = _load_overrides()
-        if overrides:
-            _current_config = _merge_config(_current_config, overrides)
+        _current_config = _build_effective_config(default_config, overrides)
         _memory_instance = Memory.from_config(_current_config)
 
 
 def update_config(updates: Dict[str, Any]) -> Dict[str, Any]:
     global _current_config, _memory_instance
     with _state_lock:
-        next_config = _merge_config(_current_config, updates)
-        _current_config = next_config
-        _memory_instance = Memory.from_config(next_config)
         overrides = _load_overrides()
         overrides = _merge_config(overrides, updates)
+        _current_config = _build_effective_config(_current_config, overrides)
+        _memory_instance = Memory.from_config(_current_config)
         _save_overrides(overrides)
         return deepcopy(_current_config)
 
